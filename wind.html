@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>10. Air : Earth Within the Air Flow</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson@3"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+body{
+  margin:0;
+  background:radial-gradient(circle at 50% 45%, #0a1e4f 0%, #000010 100%);
+  color:white;
+  font-family:"Segoe UI",sans-serif;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+}
+
+/* === Title ABOVE the bounding box === */
+.title{
+  margin-bottom:12px;
+  font-size:1.8rem;
+  font-weight:bold;
+  color:#000;
+  background:#a8e6cf;
+  padding:6px 22px;
+  border-radius:10px;
+  box-shadow:0 0 15px rgba(0,0,0,0.3);
+  text-align:center;
+}
+
+/* === Bounding box === */
+.bounding-box{
+  position:relative;
+  width:80vw;
+  height:80vh;
+  border:2px solid rgba(120,200,255,0.4);
+  border-radius:20px;
+  box-shadow:0 0 30px rgba(120,200,255,0.25);
+  overflow:hidden;
+  background:rgba(255,255,255,0.03);
+}
+
+/* === Metrics bar === */
+.metrics{
+  position:absolute;
+  bottom:15px;
+  right:15px;
+  display:flex;
+  gap:15px;
+  background:rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:8px 14px;
+  box-shadow:0 0 10px rgba(0,0,0,0.3);
+  font-size:0.95rem;
+}
+.metric{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.metric i{color:#a8e6cf;}
+.metric span{color:#a8e6cf;font-weight:bold;}
+
+/* === Globe visuals === */
+canvas,svg{
+  position:absolute;
+  top:0;left:0;
+  width:100%;height:100%;
+}
+.land{
+  fill:rgba(130,180,255,0.25);
+  stroke:rgba(255,255,255,0.9);
+  stroke-width:0.6;
+}
+.sphere{
+  fill:url(#grad);
+  opacity:0.45;
+}
+.haze{
+  position:absolute;
+  top:0;left:0;
+  width:100%;height:100%;
+  background:radial-gradient(circle at 50% 50%, rgba(120,180,255,0.06), rgba(0,0,30,0.7));
+  pointer-events:none;
+  z-index:3;
+}
+</style>
+</head>
+<body>
+
+<!-- === Title on Top === -->
+<div class="title">10. Air : Earth Within the Air Flow</div>
+
+<!-- === Bounding Box with Globe === -->
+<div class="bounding-box">
+  <canvas id="windGL"></canvas>
+  <svg id="globe"></svg>
+  <div class="haze"></div>
+
+  <div class="metrics">
+    <div class="metric"><i class="fas fa-wind"></i><span id="avg">14.2 km/h</span></div>
+    <div class="metric"><i class="fas fa-tachometer-alt"></i><span id="gust">32.6 km/h</span></div>
+    <div class="metric"><i class="fas fa-cloud"></i><span id="pressure">1014 hPa</span></div>
+  </div>
+</div>
+
+<script src="webgl-w1nd.js"></script>
+<script>
+const canvas=document.getElementById("windGL");
+canvas.width=innerWidth*0.8;
+canvas.height=innerHeight*0.8;
+const gl=canvas.getContext("webgl",{antialias:true});
+const wind=new WindGL(gl);
+
+// D3 globe — adjusted scale to fit within air shell
+const svg=d3.select("#globe");
+const projection=d3.geoOrthographic()
+  .scale(innerHeight/3.5)
+  .translate([innerWidth*0.4,innerHeight*0.4])
+  .clipAngle(90);
+const path=d3.geoPath(projection);
+
+// Earth gradient
+const defs=svg.append("defs");
+const grad=defs.append("radialGradient").attr("id","grad")
+  .attr("cx","50%").attr("cy","45%").attr("r","60%");
+grad.append("stop").attr("offset","0%").attr("stop-color","#4d8cff").attr("stop-opacity",0.8);
+grad.append("stop").attr("offset","100%").attr("stop-color","#001030").attr("stop-opacity",1);
+
+svg.append("path").datum({type:"Sphere"}).attr("class","sphere").attr("d",path);
+d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(world=>{
+  svg.append("path")
+    .datum(topojson.feature(world, world.objects.countries))
+    .attr("class","land").attr("d",path);
+});
+
+// Animate globe and atmosphere
+fetch("berlin_wind.json").then(r=>r.json()).then(data=>{
+  wind.setWind(data);
+  animate();
+});
+let λ=0;
+function animate(){
+  λ+=0.2;
+  projection.rotate([λ,-20]);
+  svg.selectAll("path").attr("d",path);
+  wind.draw();
+  requestAnimationFrame(animate);
+}
+</script>
+</body>
+</html>
